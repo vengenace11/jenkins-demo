@@ -1,0 +1,52 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Create Python Environment') {
+            steps {
+                sh '''
+                    python3 -m venv .venv
+                    . .venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Run DVD Rental Restore') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'POSTGRES_USER', variable: 'POSTGRES_USER'),
+                    string(credentialsId: 'POSTGRES_PASSWORD', variable: 'POSTGRES_PASSWORD'),
+                    string(credentialsId: 'POSTGRES_HOST', variable: 'POSTGRES_HOST'),
+                    string(credentialsId: 'POSTGRES_PORT', variable: 'POSTGRES_PORT'),
+                    string(credentialsId: 'DATABASE_NAME', variable: 'DATABASE_NAME'),
+                    string(credentialsId: 'DOWNLOAD_URL', variable: 'DOWNLOAD_URL'),
+                    string(credentialsId: 'ZIP_PATH', variable: 'ZIP_PATH'),
+                    string(credentialsId: 'TAR_PATH', variable: 'TAR_PATH'),
+                    string(credentialsId: 'EXTRACT_DIR', variable: 'EXTRACT_DIR')
+                ]) {
+                    sh '''
+                        . .venv/bin/activate
+                        python scripts/ingest_dvdrental.py
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'DVD rental restore completed successfully.'
+        }
+        failure {
+            echo 'DVD rental restore failed.'
+        }
+    }
+}
